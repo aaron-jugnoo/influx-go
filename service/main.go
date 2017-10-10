@@ -17,7 +17,7 @@ import (
 	//redis "gopkg.in/redis.v5"
 	redis "github.com/go-redis/redis"
 
-	"github.com/shell909090/influx-proxy/backend"
+	"github.com/yozora-hitagi/influx-proxy/backend"
 )
 
 var (
