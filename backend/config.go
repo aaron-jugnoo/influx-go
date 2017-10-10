@@ -11,7 +11,8 @@ import (
 	"strconv"
 	"strings"
 
-	"gopkg.in/redis.v5"
+	//"gopkg.in/redis.v5"
+	"github.com/go-redis/redis"
 )
 
 const (
