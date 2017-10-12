@@ -15,9 +15,10 @@ import (
 
 	lumberjack "gopkg.in/natefinch/lumberjack.v2"
 	//redis "gopkg.in/redis.v5"
-	redis "github.com/go-redis/redis"
+	//redis "github.com/go-redis/redis"
 
-	"github.com/yozora-hitagi/influx-proxy/backend"
+	"../backend"
+	//"github.com/yozora-hitagi/influx-proxy/backend"
 )
 
 var (
@@ -31,17 +32,18 @@ var (
 func init() {
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds | log.Lshortfile)
 
-	flag.StringVar(&LogFilePath, "log-file-path", "/var/log/influx-proxy.log", "output file")
-	flag.StringVar(&ConfigFile, "config", "", "config file")
+	flag.StringVar(&LogFilePath, "log-file-path", "influx-proxy.log", "output file")
+	flag.StringVar(&ConfigFile, "config", "proxy.json", "config file")
 	flag.StringVar(&NodeName, "node", "l1", "node name")
-	flag.StringVar(&RedisAddr, "redis", "localhost:6379", "config file")
+	//flag.StringVar(&RedisAddr, "redis", "localhost:6379", "config file")
 	flag.Parse()
 }
 
-type Config struct {
-	redis.Options
-	Node string
-}
+//type Config struct {
+//	redis.Options
+//	CfgFile string
+//	Node string
+//}
 
 func LoadJson(configfile string, cfg interface{}) (err error) {
 	file, err := os.Open(configfile)
@@ -61,7 +63,7 @@ func initLog() {
 	} else {
 		log.SetOutput(&lumberjack.Logger{
 			Filename:   LogFilePath,
-			MaxSize:    100,
+			MaxSize:    10,
 			MaxBackups: 5,
 			MaxAge:     7,
 		})
@@ -72,34 +74,46 @@ func main() {
 	initLog()
 
 	var err error
-	var cfg Config
+	//var cfg Config
 
-	if ConfigFile != "" {
-		err = LoadJson(ConfigFile, &cfg)
-		if err != nil {
-			log.Print("load config failed: ", err)
-			return
-		}
-		log.Printf("json loaded.")
-	}
+	//if ConfigFile != "" {
+	//	err = LoadJson(ConfigFile, &cfg)
+	//	if err != nil {
+	//		log.Print("load config failed: ", err)
+	//		return
+	//	}
+	//	log.Printf("json loaded.")
+	//}
+	//
+	//if NodeName != "" {
+	//	cfg.Node = NodeName
+	//}
+	//
+	//if RedisAddr != "" {
+	//	cfg.Addr = RedisAddr
+	//}
 
-	if NodeName != "" {
-		cfg.Node = NodeName
-	}
 
-	if RedisAddr != "" {
-		cfg.Addr = RedisAddr
-	}
 
-	rcs := backend.NewRedisConfigSource(&cfg.Options, cfg.Node)
+	var cfgsource *backend.ConfigSource
 
-	nodecfg, err := rcs.LoadNode()
+	//if RedisAddr != "" {
+	//	var ops redis.Options
+	//	ops.Addr=RedisAddr
+	//	cfgsource=backend.NewRedisConfigSource(&ops, NodeName)
+	//}
+
+	cfgsource=backend.NewConfigSource(ConfigFile,NodeName)
+
+	//rcs := backend.NewRedisConfigSource(&cfg.Options, cfg.Node)
+
+	nodecfg, err := cfgsource.LoadNode()
 	if err != nil {
 		log.Printf("config source load failed.")
 		return
 	}
 
-	ic := backend.NewInfluxCluster(rcs, &nodecfg)
+	ic := backend.NewInfluxCluster(cfgsource, &nodecfg)
 	ic.LoadConfig()
 
 	mux := http.NewServeMux()

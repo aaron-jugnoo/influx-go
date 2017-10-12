@@ -96,7 +96,7 @@ func (hb *HttpBackend) IsActive() bool {
 func (hb *HttpBackend) Ping() (version string, err error) {
 	resp, err := hb.client.Get(hb.URL + "/ping")
 	if err != nil {
-		log.Print("http error: ", err)
+		log.Print(hb.Zone," http error: ", err)
 		return
 	}
 	defer resp.Body.Close()

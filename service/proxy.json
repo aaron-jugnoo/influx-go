@@ -1,0 +1,47 @@
+{
+  "BACKENDS": {
+    "db1": {
+      "url": "http://192.168.8.182:8086",
+      "db": "mydb",
+      "zone": "db1",
+      "interval": 1000,
+      "timeout": 10000,
+      "timeoutquery": 600000,
+      "maxrowlimit": 10000,
+      "checkinterval": 1000,
+      "rewriteinterval": 10000
+    },
+    "db2": {
+      "url": "http://192.168.8.182:8086",
+      "db": "mydb",
+      "zone": "db2",
+      "interval": 1000,
+      "timeout": 10000,
+      "timeoutquery": 600000,
+      "maxrowlimit": 10000,
+      "checkinterval": 1000,
+      "rewriteinterval": 10000
+    }
+  },
+  "KEYMAPS": {
+    "perfhour": [
+      "db1"
+    ],
+    "perftab": [
+      "db1",
+      "db2"
+    ]
+  },
+  "NODES": {
+    "l1": {
+      "listenaddr": ":6666",
+      "db": "mydb",
+      "zone": "db1",
+      "interval": 10,
+      "idletimeout": 10,
+      "writetracing": 0,
+      "querytracing": 0
+    }
+  }
+}
+

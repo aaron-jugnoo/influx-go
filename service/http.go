@@ -12,7 +12,8 @@ import (
 	"net/http/pprof"
 	"strings"
 
-	"github.com/yozora-hitagi/influx-proxy/backend"
+	"../backend"
+	//"github.com/yozora-hitagi/influx-proxy/backend"
 )
 
 type HttpService struct {
@@ -32,7 +33,7 @@ func NewHttpService(ic *backend.InfluxCluster, db string) (hs *HttpService) {
 }
 
 func (hs *HttpService) Register(mux *http.ServeMux) {
-	mux.HandleFunc("/reload", hs.HandlerReload)
+	//mux.HandleFunc("/reload", hs.HandlerReload)
 	mux.HandleFunc("/ping", hs.HandlerPing)
 	mux.HandleFunc("/query", hs.HandlerQuery)
 	mux.HandleFunc("/write", hs.HandlerWrite)
@@ -40,20 +41,20 @@ func (hs *HttpService) Register(mux *http.ServeMux) {
 	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
 }
 
-func (hs *HttpService) HandlerReload(w http.ResponseWriter, req *http.Request) {
-	defer req.Body.Close()
-	w.Header().Add("X-Influxdb-Version", backend.VERSION)
-
-	err := hs.ic.LoadConfig()
-	if err != nil {
-		w.WriteHeader(400)
-		w.Write([]byte(err.Error()))
-		return
-	}
-
-	w.WriteHeader(204)
-	return
-}
+//func (hs *HttpService) HandlerReload(w http.ResponseWriter, req *http.Request) {
+//	defer req.Body.Close()
+//	w.Header().Add("X-Influxdb-Version", backend.VERSION)
+//
+//	err := hs.ic.LoadConfig()
+//	if err != nil {
+//		w.WriteHeader(400)
+//		w.Write([]byte(err.Error()))
+//		return
+//	}
+//
+//	w.WriteHeader(204)
+//	return
+//}
 
 func (hs *HttpService) HandlerPing(w http.ResponseWriter, req *http.Request) {
 	defer req.Body.Close()
