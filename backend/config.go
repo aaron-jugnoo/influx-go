@@ -84,21 +84,24 @@ redis config source
 
 type ConfigSource struct {
 	//client *redis.Client
-	node string
+	Node string
 	//zone   string
 
 	NODES    map[string]NodeConfig
 	BACKENDS map[string]BackendConfig
 	KEYMAPS  map[string][]string
+
+	LDMAPS map[string]string
 }
 
-func NewConfigSource(cfgfile string, node string) (cs *ConfigSource) {
+func NewConfigSource(cfgfile string, node string) (cs *ConfigSource ,err error) {
 	cs = &ConfigSource{
-		node: node,
+		Node: node,
 	}
 
 	file, err := os.Open(cfgfile)
 	if err != nil {
+		log.Printf("config source [%s] load failed.",cfgfile)
 		return
 	}
 	defer file.Close()
@@ -115,64 +118,60 @@ func NewConfigSource(cfgfile string, node string) (cs *ConfigSource) {
 //	return
 //}
 
-func (rcs *ConfigSource) LoadNode() (nodecfg NodeConfig, err error) {
-	//val, err := rcs.client.HGetAll("default_node").Result()
-	//if err != nil {
-	//	log.Printf("redis load error: b:%s", rcs.node)
-	//	return
-	//}
+//func (rcs *ConfigSource) LoadNode() (nodecfg NodeConfig, err error) {
+//	//val, err := rcs.client.HGetAll("default_node").Result()
+//	//if err != nil {
+//	//	log.Printf("redis load error: b:%s", rcs.node)
+//	//	return
+//	//}
+//
+//	//err = LoadStructFromMap(val, &nodecfg)
+//	//if err != nil {
+//	//	log.Printf("redis load error: b:%s", rcs.node)
+//	//	return
+//	//}
+//	//
+//	//val, err = rcs.client.HGetAll("n:" + rcs.node).Result()
+//	//if err != nil {
+//	//	log.Printf("redis load error: b:%s", rcs.node)
+//	//	return
+//	//}
+//	//
+//	//err = LoadStructFromMap(val, &nodecfg)
+//	//if err != nil {
+//	//	log.Printf("redis load error: b:%s", rcs.node)
+//	//	return
+//	//}
+//	//log.Printf("node config loaded.")
+//
+//	nodecfg = rcs.NODES[rcs.node]
+//	log.Printf("node config [", rcs.node, "] loaded.")
+//	return
+//}
 
-	//err = LoadStructFromMap(val, &nodecfg)
-	//if err != nil {
-	//	log.Printf("redis load error: b:%s", rcs.node)
-	//	return
-	//}
-	//
-	//val, err = rcs.client.HGetAll("n:" + rcs.node).Result()
-	//if err != nil {
-	//	log.Printf("redis load error: b:%s", rcs.node)
-	//	return
-	//}
-	//
-	//err = LoadStructFromMap(val, &nodecfg)
-	//if err != nil {
-	//	log.Printf("redis load error: b:%s", rcs.node)
-	//	return
-	//}
-	//log.Printf("node config loaded.")
-
-	nodecfg = rcs.NODES[rcs.node]
-	log.Printf("node config [", rcs.node, "] loaded.")
-	return
-}
-
-func (rcs *ConfigSource) LoadBackends() (backends map[string]*BackendConfig, err error) {
-	backends = make(map[string]*BackendConfig)
-
-	//names, err := rcs.client.Keys("b:*").Result()
-	//if err != nil {
-	//	log.Printf("read redis error: %s", err)
-	//	return
-	//}
-	//
-	//var cfg *BackendConfig
-	//for _, name := range names {
-	//	name = name[2:len(name)]
-	//	cfg, err = rcs.LoadConfigFromRedis(name)
-	//	if err != nil {
-	//		log.Printf("read redis config error: %s", err)
-	//		return
-	//	}
-	//	backends[name] = cfg
-	//}
-	//log.Printf("%d backends loaded from redis.", len(backends))
-
-	for k, v := range rcs.BACKENDS {
-		backends[k] = &v
-	}
-
-	return
-}
+//func (rcs *ConfigSource) LoadBackends() (backends map[string]*BackendConfig, err error) {
+//	backends = make(map[string]*BackendConfig)
+//
+//	//names, err := rcs.client.Keys("b:*").Result()
+//	//if err != nil {
+//	//	log.Printf("read redis error: %s", err)
+//	//	return
+//	//}
+//	//
+//	//var cfg *BackendConfig
+//	//for _, name := range names {
+//	//	name = name[2:len(name)]
+//	//	cfg, err = rcs.LoadConfigFromRedis(name)
+//	//	if err != nil {
+//	//		log.Printf("read redis config error: %s", err)
+//	//		return
+//	//	}
+//	//	backends[name] = cfg
+//	//}
+//	//log.Printf("%d backends loaded from redis.", len(backends))
+//
+//	return
+//}
 
 //func (rcs *ConfigSource) LoadConfigFromRedis(name string) (cfg *BackendConfig, err error) {
 //	val, err := rcs.client.HGetAll("b:" + name).Result()

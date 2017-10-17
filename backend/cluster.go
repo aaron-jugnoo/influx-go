@@ -19,7 +19,9 @@ import (
 	"unsafe"
 
 	"../monitor"
-	//"github.com/yozora-hitagi/influx-proxy/monitor"
+
+	"strconv"
+	"encoding/json"
 )
 
 var (
@@ -58,7 +60,7 @@ func TrimRight(p []byte, s []byte) (r []byte) {
 	i := len(r) - 1
 	for ; bytes.IndexByte(s, r[i]) != -1; i-- {
 	}
-	return r[0 : i+1]
+	return r[0: i+1]
 }
 
 // TODO: kafka next
@@ -95,6 +97,30 @@ type Statistics struct {
 	QueryRequestDuration int64
 }
 
+type Series struct {
+	Name    string          `json:"name"`
+	Columns []string        `json:"columns"`
+	Values  [][]interface{} `json:"values"`
+}
+type Results struct {
+	Statement_id int      `json:"statement_id"`
+	Series       []Series `json:"series"`
+}
+type Result struct {
+	Results []Results `json:"results"`
+}
+
+//type Result struct {
+//	Results []struct {
+//		Series []struct {
+//			Columns []string        `json:"columns"`
+//			Name    string          `json:"name"`
+//			Values  [][]interface{} `json:"values"`
+//		} `json:"series"`
+//		StatementID int `json:"statement_id"`
+//	} `json:"results"`
+//}
+
 func NewInfluxCluster(cfgsrc *ConfigSource, nodecfg *NodeConfig) (ic *InfluxCluster) {
 	ic = &InfluxCluster{
 		Zone:           nodecfg.Zone,
@@ -130,7 +156,12 @@ func NewInfluxCluster(cfgsrc *ConfigSource, nodecfg *NodeConfig) (ic *InfluxClus
 	}
 
 	// feature
-	go ic.statistics()
+
+	/*
+	这里是统计，需要创建对应的measurement 配置好映射，ticker 10秒一次
+	因为没配置 引发大量日志，先关闭
+	 */
+	//go ic.statistics()
 	return
 }
 
@@ -220,12 +251,12 @@ func (ic *InfluxCluster) AddNext(ba BackendAPI) {
 func (ic *InfluxCluster) loadBackends() (backends map[string]BackendAPI, bas []BackendAPI, err error) {
 	backends = make(map[string]BackendAPI)
 
-	bkcfgs, err := ic.cfgsrc.LoadBackends()
-	if err != nil {
-		return
-	}
+	//bkcfgs, err := ic.cfgsrc.LoadBackends()
+	//if err != nil {
+	//	return
+	//}
 
-	for name, cfg := range bkcfgs {
+	for name, cfg := range ic.cfgsrc.BACKENDS {
 		backends[name], err = NewBackends(cfg, name)
 		if err != nil {
 			log.Printf("create backend error: %s", err)
@@ -402,6 +433,119 @@ func (ic *InfluxCluster) Query(w http.ResponseWriter, req *http.Request) (err er
 		return
 	}
 
+	//如果指定了负载均衡的配置
+	if tag, ok := ic.cfgsrc.LDMAPS[key]; ok {
+		//存在
+		tagvalues, e := GetTagFromInfluxQL(q, tag)
+		if e != nil {
+			err = e
+			log.Printf("%s\n", e)
+			w.WriteHeader(400)
+			w.Write([]byte("can't get identity key&value"))
+			atomic.AddInt64(&ic.stats.QueryRequestsFail, 1)
+			return
+		}
+
+		//l := len(tagvalues)
+		var b []int = make([]int, len(tagvalues))
+		for n, _v := range tagvalues {
+			b[n], e = strconv.Atoi(_v)
+			if e != nil {
+				err = e
+				log.Printf("%s\n", e)
+				w.WriteHeader(400)
+				w.Write([]byte("can't change identity Atoi"))
+				atomic.AddInt64(&ic.stats.QueryRequestsFail, 1)
+				return
+			}
+		}
+
+		apim := make(map[int]int)
+		for _, _v := range b {
+			i := _v % len(apis)
+			apim[i] = 1
+		}
+
+		if len(apim) == 1 {
+			//只需要查询一个数据库， 不需要数据合并，走原来的方法
+			for i, _ := range apim {
+				api := apis[i]
+				//if api.IsActive() {
+				err = api.Query(w, req)
+				if err == nil {
+					return
+				}
+				//}
+			}
+		} else {
+			var l int
+			//var w int
+			rs := make(map[int]Result)
+			//否者用新的方法
+			for i, _ := range apim {
+				api := apis[i]
+				//if api.IsActive() {
+				p, er := api.Query2(req)
+				if er != nil {
+					err = er
+					log.Printf("%s\n", err)
+					continue
+				}
+				//fmt.Println(string(p))
+
+				//js ,er:= simplejson.NewJson(p)
+				//j:=js.GetPath("results")
+				//_p,_:=j.Encode()
+				//fmt.Printf(string(_p))
+
+				//dec :=json.NewDecoder(bytes.NewReader(p))
+				r := Result{}
+				//r.Results=Results{Series:Series{}}
+				//err = dec.Decode(&r)
+				err = json.Unmarshal(p, &r)
+				if err != nil {
+					log.Printf("%s\n", err)
+					continue
+				}
+				rs[i] = r
+				//统计result个数
+				l += len(r.Results)
+				//w = len(r.Results.Series.Columns)
+
+				//}
+			}
+
+			value := make([]Results, l)
+			var s int
+			for _, r := range rs {
+				copy(value[s:], r.Results)
+				s += len(r.Results)
+			}
+
+			_r := Result{Results: value}
+			p, er := json.Marshal(_r)
+			if er != nil {
+				err = er
+				log.Printf("%s\n", err)
+				w.WriteHeader(400)
+				w.Write([]byte("ld query merge error"))
+				atomic.AddInt64(&ic.stats.QueryRequestsFail, 1)
+				return
+			}
+			w.WriteHeader(200)
+			w.Write(p)
+			//加个 回车， 测试命令行下好看结果，对json也没啥影响
+			w.Write([]byte{'\n'})
+			return
+
+		}
+
+		w.WriteHeader(400)
+		w.Write([]byte("ld query error"))
+		atomic.AddInt64(&ic.stats.QueryRequestsFail, 1)
+		return
+	}
+
 	// same zone first, other zone. pass non-active.
 	// TODO: better way?
 
@@ -461,6 +605,47 @@ func (ic *InfluxCluster) WriteRow(line []byte) {
 		log.Printf("new measurement: %s\n", key)
 		atomic.AddInt64(&ic.stats.PointsWrittenFail, 1)
 		// TODO: new measurement?
+		return
+	}
+
+	//如果指定了负载均衡的配置
+	if tag, ok := ic.cfgsrc.LDMAPS[key]; ok {
+		//存在
+		var buff bytes.Buffer
+		buff.WriteString(".*?")
+		buff.WriteString(tag)
+		buff.WriteString("\\s*=\\s*['\"]*(.*?)['\"]*[,\\s]")
+
+		r, err := regexp.Compile(buff.String())
+
+		if err != nil {
+			return
+		}
+
+		rs := r.FindStringSubmatch(string(line))
+
+		if len(rs) >= 1 {
+			v := rs[1]
+			b, e := strconv.Atoi(v)
+			if e != nil {
+				log.Printf("ld write fail: %s %s %s\n", key, v, e)
+				atomic.AddInt64(&ic.stats.PointsWrittenFail, 1)
+				return
+			}
+
+			i := b % len(bs)
+			api := bs[i]
+			err = api.Write(line)
+			if err != nil {
+				log.Printf("ld write fail: %s %s %s\n", key, v, e)
+				atomic.AddInt64(&ic.stats.PointsWrittenFail, 1)
+				return
+			}
+			return
+		}
+
+		log.Printf("ld write fail: %s\n", key)
+		atomic.AddInt64(&ic.stats.PointsWrittenFail, 1)
 		return
 	}
 

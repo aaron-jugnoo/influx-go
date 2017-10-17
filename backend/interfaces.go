@@ -8,6 +8,7 @@ import "net/http"
 
 type Querier interface {
 	Query(w http.ResponseWriter, req *http.Request) (err error)
+	//Query2(req *http.Request) (p []byte,err error)
 }
 
 type BackendAPI interface {
@@ -18,4 +19,7 @@ type BackendAPI interface {
 	GetZone() (zone string)
 	Write(p []byte) (err error)
 	Close() (err error)
+
+	//上面的接口还有其他实现
+	Query2(req *http.Request) (p []byte, err error)
 }

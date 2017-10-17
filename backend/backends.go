@@ -34,7 +34,7 @@ type Backends struct {
 }
 
 // maybe ch_timer is not the best way.
-func NewBackends(cfg *BackendConfig, name string) (bs *Backends, err error) {
+func NewBackends(cfg BackendConfig, name string) (bs *Backends, err error) {
 	bs = &Backends{
 		HttpBackend: NewHttpBackend(cfg),
 		// FIXME: path...

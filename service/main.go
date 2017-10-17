@@ -19,6 +19,7 @@ import (
 
 	"../backend"
 	//"github.com/yozora-hitagi/influx-proxy/backend"
+	"fmt"
 )
 
 var (
@@ -34,7 +35,7 @@ func init() {
 
 	flag.StringVar(&LogFilePath, "log-file-path", "influx-proxy.log", "output file")
 	flag.StringVar(&ConfigFile, "config", "proxy.json", "config file")
-	flag.StringVar(&NodeName, "node", "l1", "node name")
+	flag.StringVar(&NodeName, "node", "default", "node name")
 	//flag.StringVar(&RedisAddr, "redis", "localhost:6379", "config file")
 	flag.Parse()
 }
@@ -103,15 +104,21 @@ func main() {
 	//	cfgsource=backend.NewRedisConfigSource(&ops, NodeName)
 	//}
 
-	cfgsource=backend.NewConfigSource(ConfigFile,NodeName)
+	cfgsource,err=backend.NewConfigSource(ConfigFile,NodeName)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 
 	//rcs := backend.NewRedisConfigSource(&cfg.Options, cfg.Node)
 
-	nodecfg, err := cfgsource.LoadNode()
-	if err != nil {
-		log.Printf("config source load failed.")
-		return
-	}
+	//nodecfg, err := cfgsource.LoadNode()
+	//if err != nil {
+	//	log.Printf("config source load failed.")
+	//	return
+	//}
+
+	nodecfg:=cfgsource.NODES[cfgsource.Node]
 
 	ic := backend.NewInfluxCluster(cfgsource, &nodecfg)
 	ic.LoadConfig()
@@ -119,12 +126,14 @@ func main() {
 	mux := http.NewServeMux()
 	NewHttpService(ic, nodecfg.DB).Register(mux)
 
-	log.Printf("http service start.")
+
 	server := &http.Server{
 		Addr:        nodecfg.ListenAddr,
 		Handler:     mux,
 		IdleTimeout: time.Duration(nodecfg.IdleTimeout) * time.Second,
 	}
+	log.Printf("http service start : %s",nodecfg.ListenAddr)
+
 	if nodecfg.IdleTimeout <= 0 {
 		server.IdleTimeout = 10 * time.Second
 	}

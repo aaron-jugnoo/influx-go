@@ -50,7 +50,7 @@ type HttpBackend struct {
 	WriteOnly int
 }
 
-func NewHttpBackend(cfg *BackendConfig) (hb *HttpBackend) {
+func NewHttpBackend(cfg BackendConfig) (hb *HttpBackend) {
 	hb = &HttpBackend{
 		client: &http.Client{
 			Timeout: time.Millisecond * time.Duration(cfg.Timeout),
@@ -163,6 +163,41 @@ func (hb *HttpBackend) Query(w http.ResponseWriter, req *http.Request) (err erro
 
 	w.WriteHeader(resp.StatusCode)
 	w.Write(p)
+	return
+}
+
+func (hb *HttpBackend) Query2(req *http.Request) (p []byte,err error) {
+	if len(req.Form) == 0 {
+		req.Form = url.Values{}
+	}
+	req.Form.Set("db", hb.DB)
+	req.ContentLength = 0
+
+	req.URL, err = url.Parse(hb.URL + "/query?" + req.Form.Encode())
+	if err != nil {
+		log.Print("internal url parse error: ", err)
+		return
+	}
+
+	q := strings.TrimSpace(req.FormValue("q"))
+	resp, err := hb.transport.RoundTrip(req)
+	if err != nil {
+		log.Printf("query error: %s,the query is %s\n", err, q)
+		hb.Active = false
+		return
+	}
+	defer resp.Body.Close()
+
+	//copyHeader(w.Header(), resp.Header)
+
+	p, err = ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Printf("read body error: %s,the query is %s\n", err, q)
+		return
+	}
+
+	//w.WriteHeader(resp.StatusCode)
+	//w.Write(p)
 	return
 }
 

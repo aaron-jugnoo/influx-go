@@ -10,6 +10,8 @@ import (
 	"errors"
 	"log"
 	"strings"
+
+	"regexp"
 )
 
 var (
@@ -139,12 +141,41 @@ func GetMeasurementFromInfluxQL(q string) (m string, err error) {
 	return "", ErrIllegalQL
 }
 
+func GetTagFromInfluxQL(q string, tag string) (m []string, err error) {
+
+	var buff bytes.Buffer
+	//buff.WriteString("[Ww][Hh][Ee][Rr][Ee].*?")
+	buff.WriteString(tag)
+	buff.WriteString("\\s*=\\s*['\"]*(.*?)['\"]*\\s")
+
+	r, err := regexp.Compile(buff.String())
+
+	if err != nil {
+		return
+	}
+
+	rs := r.FindAllStringSubmatch(q, -1)
+
+	m = make([]string, len(rs))
+
+	for n, _rs := range rs {
+		//if len(_rs) == 2 {
+		m[n] = _rs[1]
+		//}
+	}
+
+	//err = ErrIllegalQL
+
+	//return "", ErrIllegalQL
+	return
+}
+
 func getMeasurement(tokens []string) (m string) {
 	if len(tokens) >= 2 && strings.HasPrefix(tokens[1], ".") {
 		m = tokens[1]
 		m = m[1:]
 		if m[0] == '"' || m[0] == '\'' {
-			m = m[1 : len(m)-1]
+			m = m[1: len(m)-1]
 		}
 		return
 	}
@@ -155,7 +186,7 @@ func getMeasurement(tokens []string) (m string) {
 	}
 
 	if m[0] == '"' || m[0] == '\'' {
-		m = m[1 : len(m)-1]
+		m = m[1: len(m)-1]
 		return
 	}
 
@@ -166,7 +197,7 @@ func getMeasurement(tokens []string) (m string) {
 
 	m = m[index+1:]
 	if m[0] == '"' || m[0] == '\'' {
-		m = m[1 : len(m)-1]
+		m = m[1: len(m)-1]
 	}
 	return
 }
