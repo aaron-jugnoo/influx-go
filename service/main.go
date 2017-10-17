@@ -2,6 +2,8 @@
 // Use of this source code is governed by a MIT
 // license that can be found in the LICENSE file.
 
+
+
 package main
 
 import (
@@ -33,7 +35,7 @@ var (
 func init() {
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds | log.Lshortfile)
 
-	flag.StringVar(&LogFilePath, "log-file-path", "influx-proxy.log", "output file")
+	flag.StringVar(&LogFilePath, "log-file-path", "influx-go.log", "output file")
 	flag.StringVar(&ConfigFile, "config", "proxy.json", "config file")
 	flag.StringVar(&NodeName, "node", "default", "node name")
 	//flag.StringVar(&RedisAddr, "redis", "localhost:6379", "config file")
