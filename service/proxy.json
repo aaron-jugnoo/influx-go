@@ -1,18 +1,21 @@
 {
-
   "NODES": {
     "default": {
       "listenaddr": ":6666",
-      "db": "testproxy",
+      "db": "",
       "zone": "db1",
-      "interval": 10,
+      "interval": -60,
       "idletimeout": 10,
       "writetracing": 0,
-      "querytracing": 0
+      "querytracing": 0,
+      "comment": [
+        "listenaddr : 监听端口 ",
+        "db : 只允许该数据库的操作，可以设置为空",
+        "zone : 默认的zone",
+        "interval : 节点会将查询统计存库，时间间隔 秒 大于0才启动统计,需要在KEYMAPS 里面配置写到哪个数据库，表名 influx-go.statistics"
+      ]
     }
   },
-
-
   "BACKENDS": {
     "db1": {
       "url": "http://192.168.8.182:8086",
@@ -26,7 +29,7 @@
       "rewriteinterval": 10000
     },
     "db2": {
-      "url": "http://192.168.3.18:8086",
+      "url": "http://192.168.8.181:8086",
       "db": "testproxy",
       "zone": "db2",
       "interval": 1000,
@@ -37,21 +40,14 @@
       "rewriteinterval": 10000
     }
   },
-
   "KEYMAPS": {
-    "perfhour": [
-      "db1"
-    ],
     "perftab": [
       "db1",
       "db2"
     ]
   },
-
-  "LDMAPS":{
-    "perftab":"id"
+  "LDMAPS": {
+    "perftab": "id"
   }
-
-
 }
 

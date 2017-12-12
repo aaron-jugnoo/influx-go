@@ -121,18 +121,27 @@ func (fb *FileBackend) CleanUp() (err error) {
 		log.Print("seek consumer error: ", err)
 		return
 	}
-
+	//Truncate 只在linux 下工作， windows 报没有权限
+	//if runtime.GOOS == "linux" {
 	err = fb.producer.Truncate(0)
 	if err != nil {
 		log.Print("truncate error: ", err)
 		return
 	}
 
+	//}
 	err = fb.producer.Close()
 	if err != nil {
 		log.Print("close producer error: ", err)
 		return
 	}
+	//if runtime.GOOS == "windows" {
+	//	err = os.Remove(fb.filename + ".dat")
+	//	if err != nil {
+	//		log.Print("remove ", fb.filename, ".dat error: ", err)
+	//		return
+	//	}
+	//}
 
 	fb.producer, err = os.OpenFile(fb.filename+".dat",
 		os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)

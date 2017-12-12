@@ -130,7 +130,7 @@ func NewInfluxCluster(cfgsrc *ConfigSource, nodecfg *NodeConfig) (ic *InfluxClus
 		bas:            make([]BackendAPI, 0),
 		stats:          &Statistics{},
 		counter:        &Statistics{},
-		ticker:         time.NewTicker(10 * time.Second),
+		ticker:         time.NewTicker(60 * time.Second),
 		defaultTags:    map[string]string{"addr": nodecfg.ListenAddr},
 		WriteTracing:   nodecfg.WriteTracing,
 		QueryTracing:   nodecfg.QueryTracing,
@@ -157,11 +157,10 @@ func NewInfluxCluster(cfgsrc *ConfigSource, nodecfg *NodeConfig) (ic *InfluxClus
 
 	// feature
 
-	/*
-	这里是统计，需要创建对应的measurement 配置好映射，ticker 10秒一次
-	因为没配置 引发大量日志，先关闭
-	 */
-	//go ic.statistics()
+	if nodecfg.Interval > 0 {
+		go ic.statistics()
+	}
+
 	return
 }
 
@@ -194,7 +193,7 @@ func (ic *InfluxCluster) Flush() {
 
 func (ic *InfluxCluster) WriteStatistics() (err error) {
 	metric := &monitor.Metric{
-		Name: "influxdb.cluster",
+		Name: "influx-go.statistics",
 		Tags: ic.defaultTags,
 		Fields: map[string]interface{}{
 			"statQueryRequest":         ic.counter.QueryRequests,
@@ -479,40 +478,40 @@ func (ic *InfluxCluster) Query(w http.ResponseWriter, req *http.Request) (err er
 			}
 		} else {
 			var l int
-			//var w int
 			rs := make(map[int]Result)
-			//否者用新的方法
+			var quit chan int = make(chan int)
 			for i, _ := range apim {
-				api := apis[i]
-				//if api.IsActive() {
-				p, er := api.Query2(req)
-				if er != nil {
-					err = er
-					log.Printf("%s\n", err)
-					continue
-				}
-				//fmt.Println(string(p))
+				//并行查询
+				go func(k int) {
+					defer func() { quit <- 0 }()
+					log.Printf("start query %d %s\n", k, q)
+					api := apis[k]
+					//if api.IsActive() {
+					p, er := api.Query2(req)
+					if er != nil {
+						err = er
+						log.Printf("%s\n", err)
+						return
+					}
+					r := Result{}
+					err = json.Unmarshal(p, &r)
+					if err != nil {
+						log.Printf("%s\n", err)
+						return
+					}
+					rs[k] = r
+					//统计result个数
+					l += len(r.Results)
+					//w = len(r.Results.Series.Columns)
 
-				//js ,er:= simplejson.NewJson(p)
-				//j:=js.GetPath("results")
-				//_p,_:=j.Encode()
-				//fmt.Printf(string(_p))
+					//}
 
-				//dec :=json.NewDecoder(bytes.NewReader(p))
-				r := Result{}
-				//r.Results=Results{Series:Series{}}
-				//err = dec.Decode(&r)
-				err = json.Unmarshal(p, &r)
-				if err != nil {
-					log.Printf("%s\n", err)
-					continue
-				}
-				rs[i] = r
-				//统计result个数
-				l += len(r.Results)
-				//w = len(r.Results.Series.Columns)
-
-				//}
+				}(i)
+			}
+			//等待所有查询结束
+			for i, _ := range apim {
+				<-quit
+				log.Printf("result return %d %s\n", i, q)
 			}
 
 			value := make([]Results, l)
@@ -649,6 +648,8 @@ func (ic *InfluxCluster) WriteRow(line []byte) {
 		return
 	}
 
+	//不是负载均衡， 这里原来是每个数据库都写一次， 高可用， 这里感觉也用并行比较好
+	// 需求上没的，先放着
 	// don't block here for a lont time, we just have one worker.
 	for _, b := range bs {
 		err = b.Write(line)
